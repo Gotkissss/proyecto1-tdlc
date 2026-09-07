@@ -69,3 +69,76 @@ def minimizar_afd(afd):
 
     afd_min.inicio = mapa_nuevo[representante[afd.inicio]]
     return afd_min
+
+
+def minimizar_afd_particion(afd):
+    """Minimización por refinamiento de particiones (método de Moore/Hopcroft).
+
+    En vez de comparar pares de estados como en minimizar_afd, aquí se parte
+    del conjunto de estados en dos grupos (aceptación / no aceptación) y se
+    van refinando (subdividiendo) esos grupos según el grupo destino al que
+    lleva cada símbolo, hasta que ya no haya más subdivisiones posibles.
+    """
+    estados = list(afd.transiciones.keys())
+
+    # Particion inicial: aceptación vs no aceptación
+    aceptacion = frozenset(s for s in estados if s in afd.acepta)
+    no_aceptacion = frozenset(s for s in estados if s not in afd.acepta)
+    particion = [g for g in (aceptacion, no_aceptacion) if g]
+
+    def grupo_de(estado, particion, id_grupo):
+        return id_grupo[estado]
+
+    cambiado = True
+    while cambiado:
+        cambiado = False
+        id_grupo = {}
+        for i, grupo in enumerate(particion):
+            for s in grupo:
+                id_grupo[s] = i
+
+        nueva_particion = []
+        for grupo in particion:
+            # Firma de cada estado del grupo: a qué grupo lleva cada símbolo
+            firmas = {}
+            for s in grupo:
+                firma = tuple(
+                    id_grupo.get(afd.transiciones[s].get(simbolo), -1)
+                    for simbolo in sorted(afd.alfabeto)
+                )
+                firmas.setdefault(firma, set()).add(s)
+
+            if len(firmas) == 1:
+                # No se pudo dividir, el grupo se mantiene igual
+                nueva_particion.append(grupo)
+            else:
+                cambiado = True
+                for subgrupo in firmas.values():
+                    nueva_particion.append(frozenset(subgrupo))
+
+        particion = nueva_particion
+
+    # Construir el AFD minimizado a partir de los grupos finales
+    representante = {}
+    for grupo in particion:
+        rep = min(grupo)
+        for s in grupo:
+            representante[s] = rep
+
+    afd_min = AFD()
+    afd_min.alfabeto = afd.alfabeto
+    grupos_ordenados = sorted(particion, key=lambda g: min(g))
+    mapa_nuevo = {min(g): i for i, g in enumerate(grupos_ordenados)}
+
+    for grupo in grupos_ordenados:
+        rep = min(grupo)
+        nuevo_id = mapa_nuevo[rep]
+        afd_min.transiciones[nuevo_id] = {}
+        for simbolo, destino in afd.transiciones[rep].items():
+            destino_rep = representante[destino]
+            afd_min.transiciones[nuevo_id][simbolo] = mapa_nuevo[destino_rep]
+        if rep in afd.acepta:
+            afd_min.acepta.add(nuevo_id)
+
+    afd_min.inicio = mapa_nuevo[representante[afd.inicio]]
+    return afd_min
