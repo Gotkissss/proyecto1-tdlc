@@ -1,7 +1,7 @@
 import os
 import sys
 
-from shunting_yard import a_postfix
+from shunting_yard import a_postfix, postfix_legible
 from thompson import construir_afn, simular_afn
 from subset_construction import construir_afd, simular_afd
 from minimization import minimizar_afd
@@ -13,7 +13,7 @@ CARPETA_SALIDA = 'salida'
 def procesar_regex(r, w, indice):
     os.makedirs(CARPETA_SALIDA, exist_ok=True)
 
-    postfix = a_postfix(r)
+    postfix = a_postfix(r)  # ahora es una lista de tokens, no un string
     afn = construir_afn(postfix)
     afd = construir_afd(afn)
     afd_min = minimizar_afd(afd)
@@ -26,7 +26,7 @@ def procesar_regex(r, w, indice):
     resultado_afd = 'sí' if simular_afd(afd, w) else 'no'
     resultado_afd_min = 'sí' if simular_afd(afd_min, w) else 'no'
 
-    print(f'\nRegex: {r}   Postfix: {postfix}')
+    print(f'\nRegex: {r}   Postfix: {postfix_legible(postfix)}')
     print(f'Cadena: "{w}"')
     print(f'  AFN         -> {resultado_afn}')
     print(f'  AFD         -> {resultado_afd}')
@@ -34,18 +34,19 @@ def procesar_regex(r, w, indice):
 
 
 def main():
-    if len(sys.argv) == 3:
-        # modo: python main.py "regex" "cadena"
-        procesar_regex(sys.argv[1], sys.argv[2], 0)
-        return
-
-    # modo batch: lee regexes.txt, pide la cadena para cada línea
     with open('regexes.txt', encoding='utf-8') as f:
-        regexes = [linea.strip() for linea in f if linea.strip()]
+        regexes = [linea.rstrip('\n') for linea in f if linea.strip()]
 
-    for i, r in enumerate(regexes):
-        w = input(f'Cadena de prueba para "{r}": ')
-        procesar_regex(r, w, i)
+    if len(sys.argv) == 3:
+        procesar_regex(sys.argv[1], sys.argv[2], 0)
+    elif len(sys.argv) == 2:
+        w = sys.argv[1]
+        for i, r in enumerate(regexes):
+            procesar_regex(r, w, i)
+    else:
+        for i, r in enumerate(regexes):
+            w = input(f'Cadena de prueba para "{r}": ')
+            procesar_regex(r, w, i)
 
 
 if __name__ == '__main__':

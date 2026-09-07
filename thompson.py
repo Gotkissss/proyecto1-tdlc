@@ -1,11 +1,11 @@
-# Construcción de Thompson: de postfix a AFN
+# Construccion de Thompson: de postfix (lista de tokens) a AFN
 
-EPSILON = '~'
+EPSILON = '\uE000'  # caracter de area privada Unicode: imposible que choque con un simbolo real del alfabeto
 
 
 class AFN:
     def __init__(self):
-        self.transiciones = {}  # estado -> [(simbolo, estado_destino), ...]
+        self.transiciones = {}
         self.inicio = None
         self.acepta = None
         self.contador = 0
@@ -21,17 +21,25 @@ class AFN:
 
 
 def construir_afn(postfix):
+    """postfix es una lista de tokens ('OP', c) / ('LIT', c), como la que devuelve a_postfix."""
     afn = AFN()
-    pila = []  # cada elemento es (estado_inicial_fragmento, estado_final_fragmento)
+    pila = []
 
-    for c in postfix:
-        if c == '.':
+    for tipo, val in postfix:
+        if tipo == 'LIT':
+            s = afn.nuevo_estado()
+            e = afn.nuevo_estado()
+            afn.agregar_transicion(s, val, e)
+            pila.append((s, e))
+            continue
+
+        if val == '.':
             f2 = pila.pop()
             f1 = pila.pop()
             afn.agregar_transicion(f1[1], EPSILON, f2[0])
             pila.append((f1[0], f2[1]))
 
-        elif c == '|':
+        elif val == '|':
             f2 = pila.pop()
             f1 = pila.pop()
             s = afn.nuevo_estado()
@@ -42,7 +50,7 @@ def construir_afn(postfix):
             afn.agregar_transicion(f2[1], EPSILON, e)
             pila.append((s, e))
 
-        elif c == '*':
+        elif val == '*':
             f = pila.pop()
             s = afn.nuevo_estado()
             e = afn.nuevo_estado()
@@ -52,7 +60,7 @@ def construir_afn(postfix):
             afn.agregar_transicion(f[1], EPSILON, e)
             pila.append((s, e))
 
-        elif c == '+':
+        elif val == '+':
             f = pila.pop()
             s = afn.nuevo_estado()
             e = afn.nuevo_estado()
@@ -61,19 +69,13 @@ def construir_afn(postfix):
             afn.agregar_transicion(f[1], EPSILON, e)
             pila.append((s, e))
 
-        elif c == '?':
+        elif val == '?':
             f = pila.pop()
             s = afn.nuevo_estado()
             e = afn.nuevo_estado()
             afn.agregar_transicion(s, EPSILON, f[0])
             afn.agregar_transicion(s, EPSILON, e)
             afn.agregar_transicion(f[1], EPSILON, e)
-            pila.append((s, e))
-
-        else:  # literal
-            s = afn.nuevo_estado()
-            e = afn.nuevo_estado()
-            afn.agregar_transicion(s, c, e)
             pila.append((s, e))
 
     inicio, fin = pila.pop()
